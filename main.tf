@@ -178,7 +178,7 @@ resource "local_file" "InfraKey" {
 
 #creating webserver instance
 resource "aws_instance" "webserver" {
-  ami           = "ami-0e47f4c3e9beeff63"
+  ami           = "ami-053b0d53c279acc90"
   instance_type = "t2.micro"
   key_name = "InfraKey"
   vpc_security_group_ids = [ aws_security_group.webserver_sg.id ]
@@ -221,7 +221,7 @@ resource "aws_security_group" "appserver_sg" {
 }
 #creating Private Instance
 resource "aws_instance" "appserver_instance" {
-  ami           = "ami-0f94c0f98151e86d7"
+  ami           = "ami-053b0d53c279acc90"
   instance_type = "t2.micro"
   key_name = "InfraKey"
   vpc_security_group_ids = [ aws_security_group.appserver_sg.id ]
@@ -251,7 +251,7 @@ resource "aws_security_group" "rds_sg" {
 }
 #creating Private db Instance
 resource "aws_instance" "private_db_instance" {
-  ami           = "ami-0e47f4c3e9beeff63"
+  ami           = "ami-053b0d53c279acc90"
   instance_type = "t2.micro"
   key_name = "InfraKey"
   vpc_security_group_ids = [ aws_security_group.appserver_sg.id ]
