@@ -6,9 +6,9 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 3.0"
-    #   access_key = "AKIAYISCODDGRHABWCHV"
-    #   secret_key = "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"
-    #   region     = "us-east-1"
+       access_key = "AKIAYISCODDGRHABWCHV"
+       secret_key = "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"
+       region     = "us-east-1"
     }
   }
 }
