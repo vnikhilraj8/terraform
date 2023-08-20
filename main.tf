@@ -1,70 +1,97 @@
-terraform {
-  required_version = ">= 0.14"
-
-  # Provider configuration can also be specified within the `terraform` block
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 3.0"
-       # access_key = "AKIAYISCODDGRHABWCHV"
-       # secret_key = "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"
-       # region     = "us-east-1"
-    }
-  }
-}
 provider "aws" {
-  region = "us-east-1"
+  region                  = "us-east-1"             # N.V
+  access_key              = "AKIAYISCODDGRHABWCHV"
+  secret_key              = "nvBSKkJdClciL/drYHmkznftyJbUd5ygW9CkkaKH"
+  # session_token          = "your-session-token" # Only if required
 }
 
-#Creating VPC
-resource "aws_vpc" "TerraformVPC" {
-  cidr_block = "10.0.0.0/16"
+resource "aws_vpc" "project_1_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
   tags = {
-    Name = "TFVPC"
+    Name = "project-1 vpc"
   }
 }
-#Creating Public Subnet 
+
 resource "aws_subnet" "public_subnet" {
-  vpc_id            = aws_vpc.TerraformVPC.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
+  vpc_id                  = aws_vpc.project_1_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
 
   tags = {
-    Name = "public_subnet"
+    Name = "Public Subnet"
   }
 }
-#Creating Private Subnet 
+
 resource "aws_subnet" "private_subnet" {
-  vpc_id            = aws_vpc.TerraformVPC.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-east-1b"
+  vpc_id     = aws_vpc.project_1_vpc.id
+  cidr_block = "10.0.2.0/24"
 
   tags = {
-    Name = "private_subnet"
+    Name = "Private Subnet"
   }
 }
-#Creating Private db Subnet 
-resource "aws_subnet" "private_db_subnet" {
-  vpc_id            = aws_vpc.TerraformVPC.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "us-east-1c"
+
+resource "aws_security_group" "rocketchat_sg" {
+  name        = "rocketchat-sg"
+  description = "RocketChat Security Group"
+  vpc_id      = aws_vpc.project_1_vpc.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 27017
+    to_port     = 27017
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+    ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # You might also want to open SSH port for instance management:
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   tags = {
-    Name = "private_db_subnet"
+    Name = "RocketChat Security Group"
   }
 }
+
+
 #Created Internet Gateway
 resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.TerraformVPC.id
+  vpc_id = aws_vpc.project_1_vpc.id
 
   tags = {
-    Name = "TFigw"
+    Name = "igw"
   }
 }
+
 #Creating Route Table for public subnet
 resource "aws_route_table" "public_routeTable" {
-  vpc_id = aws_vpc.TerraformVPC.id
+  vpc_id = aws_vpc.project_1_vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -72,208 +99,56 @@ resource "aws_route_table" "public_routeTable" {
   }
 
   tags = {
-    Name = "public_routeTable"
+    Name = "terraform_public_routeTable"
   }
 }
+
 #Associating Public Route Table with public subnet
 resource "aws_route_table_association" "PublicRTassociation" {
 
   subnet_id      = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.public_routeTable.id
 }
-#Elastic IP
-resource "aws_eip" "elasticIP" {
-   vpc   = true
- }
 
-
-#Creating NAT Gateway
-resource "aws_nat_gateway" "NATgw" {
-   allocation_id = aws_eip.elasticIP.id
-   subnet_id = aws_subnet.public_subnet.id
- }
-#Creating Route Table for private subnet
-resource "aws_route_table" "private_routeTable" {
-  vpc_id = aws_vpc.TerraformVPC.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.NATgw.id
-  }
-
-  tags = {
-    Name = "private_routeTable"
-  }
-}
-#Associating Public Route Table with private subnet
-resource "aws_route_table_association" "PrivateRTassociation" {
-
-  subnet_id      = aws_subnet.private_subnet.id
-  route_table_id = aws_route_table.private_routeTable.id
-}
-#Creating Route Table for private db subnet
-resource "aws_route_table" "private_db_routeTable" {
-  vpc_id = aws_vpc.TerraformVPC.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.NATgw.id
-  }
-
-  tags = {
-    Name = "private_db_routeTable"
-  }
-}
-#Associating Public Route Table with private db subnet
-resource "aws_route_table_association" "PrivatedbRTassociation" {
-
-  subnet_id      = aws_subnet.private_db_subnet.id
-  route_table_id = aws_route_table.private_db_routeTable.id
-}
-#creating security group for web server
-resource "aws_security_group" "webserver_sg" {
-  name        = "webserver_sg"
-  description = "Allow SSH inbound connections"
-  vpc_id = aws_vpc.TerraformVPC.id
-  
-    ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_blocks     = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "webserver_sg"
-  }
-}
 #Creating Key Pair
 resource "aws_key_pair" "InfraKey" {
-  key_name   = "InfraKey"
-  public_key = tls_private_key.rsa.public_key_openssh
+    key_name= "nivedhaInfraKey"
+    public_key = tls_private_key.rsa.public_key_openssh
 }
-
 resource "tls_private_key" "rsa" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+    algorithm = "RSA"
+    rsa_bits= 4096
 }
-
 resource "local_file" "InfraKey" {
-  content  = tls_private_key.rsa.private_key_pem
-  filename = "InfraKey"
+    content= tls_private_key.rsa.private_key_pem
+    filename= "InfraKey"
 }
 
-#creating webserver instance
-resource "aws_instance" "webserver" {
-  ami           = "ami-053b0d53c279acc90"
-  instance_type = "t2.micro"
-  key_name = "InfraKey"
-  vpc_security_group_ids = [ aws_security_group.webserver_sg.id ]
-  subnet_id = aws_subnet.public_subnet.id
-  associate_public_ip_address = true
+resource "aws_instance" "rocket_chat_instance" {
+  ami                    = "ami-053b0d53c279acc90"  # Ubuntu 20.04 LTS
+  instance_type          = "t2.medium"
+  key_name               = aws_key_pair.InfraKey.key_name
+  subnet_id              = aws_subnet.public_subnet.id
+  vpc_security_group_ids = [aws_security_group.rocketchat_sg.id]
 
-  tags = {
-    Name = "webserver"
-  }
-}
-#creating security group for backend instance
-resource "aws_security_group" "appserver_sg" {
-  name        = "appserver_sg"
-  description = "Allow SSH inbound connections"
-  vpc_id = aws_vpc.TerraformVPC.id
+  user_data = <<-EOT
+    #!/bin/bash
+    exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-   ingress {
-    from_port   = 8000
-    to_port     = 8000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+    apt-get update && apt-get install -y docker.io
 
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_blocks     = ["0.0.0.0/0"]
+    docker run -d --name=db -v /my/own/datadir:/data/db mongo:4.4
+    docker run -d --name=rocketchat --link=db -p 3000:3000 -e MONGO_URL=mongodb://db:27017/rocketchat -e ROOT_URL=http://34.207.238.240:3000 rocketchat/rocket.chat
+    cd /home/ubuntu
+    docker-compose up -d || echo "Failed to start docker-compose services"
+  EOT
+
+  timeouts {
+    create = "30m"
   }
 
   tags = {
-    Name = "appserver_sg"
+    Name = "RocketChat Instance"
   }
 }
-#creating Private Instance
-resource "aws_instance" "appserver_instance" {
-  ami           = "ami-053b0d53c279acc90"
-  instance_type = "t2.micro"
-  key_name = "InfraKey"
-  vpc_security_group_ids = [ aws_security_group.appserver_sg.id ]
-  subnet_id = aws_subnet.private_subnet.id
-  associate_public_ip_address = false
 
-  tags = {
-    Name = "appserver"
-  }
-}
-#create a security group for RDS Database Instance
-resource "aws_security_group" "rds_sg" {
-  name = "rds_sg"
-  vpc_id = aws_vpc.TerraformVPC.id
-  ingress {
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-#creating Private db Instance
-resource "aws_instance" "private_db_instance" {
-  ami           = "ami-053b0d53c279acc90"
-  instance_type = "t2.micro"
-  key_name = "InfraKey"
-  vpc_security_group_ids = [ aws_security_group.appserver_sg.id ]
-  subnet_id = aws_subnet.private_db_subnet.id
-  associate_public_ip_address = false
-
-  tags = {
-    Name = "dbserver"
-  }
-}
-# #creating db_instance
-# resource "aws_db_instance" "default" {
-#   allocated_storage    = 10
-#   db_name              = "mydb"
-#   identifier           = "myrdsinstance"
-#   engine               = "mysql"
-#   storage_type         = "gp2"
-#   instance_class       = "db.t2.micro"
-#   username             = "admin"
-#   password             = "redhat123"
-#   parameter_group_name = "default.mysql5.7"
-#   vpc_security_group_ids = aws_security_group.rds_sg.id
-#   skip_final_snapshot  = true
-# }
-# db_subnet_group_name = aws_db_subnet_group.db-subnet.name
