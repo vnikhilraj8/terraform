@@ -138,7 +138,7 @@ resource "aws_instance" "rocket_chat_instance" {
     apt-get update && apt-get install -y docker.io
 
     docker run -d --name=db -v /my/own/datadir:/data/db mongo:4.4
-    docker run -d --name=rocketchat --link=db -p 3000:3000 -e MONGO_URL=mongodb://db:27017/rocketchat -e ROOT_URL=http://34.207.238.240:3000 rocketchat/rocket.chat
+    docker run -d --name=rocketchat --link=db -p 3000:3000 -e MONGO_URL=mongodb://db:27017/rocketchat -e ROOT_URL=http://localhost:3000 rocketchat/rocket.chat
     cd /home/ubuntu
     docker-compose up -d || echo "Failed to start docker-compose services"
   EOT
